@@ -117,8 +117,9 @@
             text-shadow: 0 0 10px #00ff00;
         }
 
-        #next-btn {
+        .next-puzzle-btn {
             display: none;
+            margin-top: 20px;
             margin-bottom: 20px;
             background: rgba(0, 40, 0, 0.9);
             color: #00ff00;
@@ -132,7 +133,7 @@
             transition: all 0.3s;
         }
 
-        #next-btn:hover {
+        .next-puzzle-btn:hover {
             background: #00ff00;
             color: #000;
             box-shadow: 0 0 20px #00ff00;
@@ -177,12 +178,13 @@
             cursor: default;
         }
 
-        #slide-title {
+        .puzzle-title {
             color: #00ff00;
             font-family: monospace;
             font-size: 20px;
             margin-bottom: 15px;
             text-shadow: 0 0 5px #00ff00;
+            text-align: center;
         }
         
         .puzzle-solved .rune-box {
@@ -194,24 +196,98 @@
         .puzzle-solved .arrow {
             visibility: hidden;
         }
+
+        /* --- CSS UNTUK FINAL PUZZLE (HEX) --- */
+        #final-puzzle-wrapper {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0, 20, 0, 0.85);
+            padding: 30px;
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 30px #00ff00;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .hex-code {
+            color: #00ff00;
+            font-size: 24px;
+            letter-spacing: 4px;
+            line-height: 1.5;
+            margin: 20px 0;
+            text-align: center;
+            text-shadow: 0 0 10px #00ff00;
+            font-family: monospace;
+            word-wrap: break-word;
+        }
+
+        #hex-input {
+            background: rgba(0, 40, 0, 0.8);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            font-size: 20px;
+            padding: 12px;
+            width: 90%;
+            text-align: center;
+            font-family: monospace;
+            outline: none;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        #hex-input:focus {
+            box-shadow: 0 0 15px #00ff00;
+            background: rgba(0, 60, 0, 0.9);
+        }
+
+        #hex-input::placeholder {
+            color: rgba(0, 255, 0, 0.4);
+        }
+
+        .win-message-text {
+            display: none;
+            color: #00ff00;
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ff00;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
     </style>
 </head>
 <body>
     <canvas id="matrixCanvas"></canvas>
 
-    <!-- ELEMEN TEKA-TEKI RUNE -->
+    <!-- ELEMEN TEKA-TEKI RUNE (PUZZLE 1) -->
     <div id="puzzle-wrapper">
         <div id="win-message">Congrats solved the puzzle</div>
-        <button id="next-btn" onclick="startSlidePuzzle()">NEXT PUZZLE</button>
+        <button id="next-btn" class="next-puzzle-btn" onclick="startSlidePuzzle()">NEXT PUZZLE</button>
         <div id="puzzle-container"></div>
         <div id="decoded-text">THEGREATOLA</div>
     </div>
 
-    <!-- ELEMEN TEKA-TEKI SLIDE (Disembunyikan awalnya) -->
+    <!-- ELEMEN TEKA-TEKI SLIDE (PUZZLE 2) -->
     <div id="slide-puzzle-wrapper">
-        <div id="slide-title">RESTORE IMAGE FRAGMENTS</div>
+        <div class="puzzle-title">RESTORE IMAGE FRAGMENTS</div>
         <div id="slide-board"></div>
-        <div id="slide-win-message" style="display:none; color: #00ff00; margin-top: 15px; font-size: 24px; font-weight:bold; text-shadow: 0 0 10px #00ff00; text-transform: uppercase;">Congrats solved the puzzle</div>
+        <div id="slide-win-message" class="win-message-text">Congrats solved the puzzle</div>
+        <button id="final-btn" class="next-puzzle-btn" onclick="startFinalPuzzle()">FINAL PUZZLE</button>
+    </div>
+
+    <!-- ELEMEN TEKA-TEKI HEX (PUZZLE 3) -->
+    <div id="final-puzzle-wrapper">
+        <div class="puzzle-title">DECRYPT TRANSMISSION</div>
+        <div class="hex-code">47 49 56 45 20 4D 45 20 57 4C 20 50 4C 45 41 53 45</div>
+        <input type="text" id="hex-input" placeholder="Type decoded message..." autocomplete="off" onkeyup="checkFinalPuzzle()">
+        <div id="final-win-message" class="win-message-text">Congrats solved the puzzle</div>
     </div>
 
     <script>
@@ -346,9 +422,10 @@
         // Panggil inisialisasi teka-teki saat memuat
         initPuzzle();
 
-        // --- LOGIKA TEKA-TEKI SLIDE (3x3) ---
+        // --- LOGIKA TEKA-TEKI SLIDE (PUZZLE 2) ---
         let slideState = [];
         const gridSize = 3;
+        let isSlideSolved = false;
 
         function startSlidePuzzle() {
             // Sembunyikan teka-teki pertama
@@ -417,6 +494,8 @@
         }
 
         function moveTile(index) {
+            if (isSlideSolved) return;
+            
             let emptyIdx = slideState.indexOf(8);
             let neighbors = getNeighbors(emptyIdx);
 
@@ -438,7 +517,8 @@
                 }
             }
 
-            if (isWin) {
+            if (isWin && !isSlideSolved) {
+                isSlideSolved = true;
                 document.getElementById('slide-win-message').style.display = 'block';
                 // Menghilangkan fungsi klik karena sudah menang
                 const tiles = document.querySelectorAll('.tile');
@@ -449,6 +529,37 @@
                 emptyTile.classList.remove('empty');
                 emptyTile.style.backgroundImage = "url('https://raw.githubusercontent.com/fauzanbunz/thegreatola/main/great1.png')";
                 emptyTile.style.backgroundPosition = "-200px -200px";
+
+                // Munculkan tombol FINAL PUZZLE setelah 5 detik
+                setTimeout(() => {
+                    document.getElementById('final-btn').style.display = 'block';
+                }, 5000);
+            }
+        }
+
+        // --- LOGIKA TEKA-TEKI HEX (PUZZLE 3 - FINAL) ---
+        function startFinalPuzzle() {
+            // Sembunyikan teka-teki kedua
+            document.getElementById('slide-puzzle-wrapper').style.display = 'none';
+            // Tampilkan teka-teki ketiga (final)
+            document.getElementById('final-puzzle-wrapper').style.display = 'flex';
+            // Pindahkan fokus kursor otomatis ke dalam input box
+            document.getElementById('hex-input').focus();
+        }
+
+        function checkFinalPuzzle() {
+            const inputField = document.getElementById('hex-input');
+            const targetAnswer = "GIVE ME WL PLEASE";
+            
+            // Periksa jawaban dengan mengabaikan besar kecil huruf dan spasi berlebih di ujung string
+            if (inputField.value.toUpperCase().trim() === targetAnswer) {
+                document.getElementById('final-win-message').style.display = 'block';
+                
+                // Kunci input field dan ubah gayanya sebagai penanda selesai
+                inputField.disabled = true;
+                inputField.style.backgroundColor = '#00ff00';
+                inputField.style.color = '#000';
+                inputField.style.boxShadow = '0 0 30px #00ff00';
             }
         }
 
@@ -460,6 +571,10 @@
 
         // Fungsi fallback jika gambar gagal dimuat
         function createProceduralMask(w, h) {
+            // Mencegah nilai width atau height 0 yang menyebabkan IndexSizeError
+            w = Math.max(1, Math.floor(w));
+            h = Math.max(1, Math.floor(h));
+            
             const c = document.createElement('canvas');
             c.width = w;
             c.height = h;
@@ -484,6 +599,10 @@
 
         // Fungsi membuat topeng Matrix langsung dari piksel Foto Asli
         function createImageMask(img, w, h) {
+            // Mencegah nilai width atau height 0 yang menyebabkan IndexSizeError
+            w = Math.max(1, Math.floor(w));
+            h = Math.max(1, Math.floor(h));
+            
             if (!img) return createProceduralMask(w, h); // Fallback jika gagal muat
 
             const c = document.createElement('canvas');
@@ -528,8 +647,9 @@
 
         // Inisialisasi grid matrix
         function initGrid() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
+            // Pastikan width dan height minimal bernilai 1
+            width = canvas.width = Math.max(1, window.innerWidth);
+            height = canvas.height = Math.max(1, window.innerHeight);
 
             cols = Math.ceil(width / fontSize);
             rows = Math.ceil(height / fontSize);
