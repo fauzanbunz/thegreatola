@@ -1,1 +1,768 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Efek Matrix Wajah Hijau</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000a00; /* Warna latar belakang sangat gelap */
+            overflow: hidden;
+            font-family: monospace;
+        }
+        canvas {
+            display: block;
+        }
 
+        /* Tekstur garis statis untuk efek layar TV Tabung seutuhnya */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background-size: 100% 4px;
+            z-index: 2;
+            pointer-events: none; /* Agar tidak memblokir interaksi */
+        }
+
+        /* --- CSS UNTUK TEKA-TEKI KOPER --- */
+        #puzzle-wrapper {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #puzzle-container {
+            display: flex;
+        }
+
+        .slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .rune-box {
+            width: 45px;
+            height: 60px;
+            border: 2px solid #00ff00;
+            border-right: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            color: #00ff00;
+            background: rgba(0, 30, 0, 0.85);
+            text-shadow: 0 0 8px #00ff00;
+            user-select: none;
+            font-family: sans-serif; /* Untuk memastikan simbol Rune dirender dengan baik */
+        }
+
+        .slot:last-child .rune-box {
+            border-right: 2px solid #00ff00; /* Tutup kotak terakhir */
+        }
+
+        .arrow {
+            color: #00ff00;
+            font-size: 18px;
+            cursor: pointer;
+            user-select: none;
+            padding: 5px;
+            opacity: 0.6;
+            transition: opacity 0.2s, text-shadow 0.2s, transform 0.1s;
+        }
+
+        .arrow:hover {
+            opacity: 1;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .arrow:active {
+            transform: scale(0.8);
+        }
+
+        #win-message {
+            display: none;
+            color: #00ff00;
+            font-size: 24px;
+            font-weight: bold;
+            font-family: monospace;
+            text-shadow: 0 0 15px #00ff00, 0 0 5px #00ff00;
+            margin-bottom: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            padding: 10px 25px;
+            border: 2px dashed #00ff00;
+            letter-spacing: 2px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        /* --- CSS TAMBAHAN UNTUK TRANSISI & PUZZLE SLIDE --- */
+        #decoded-text {
+            display: none;
+            margin-top: 20px;
+            color: #00ff00;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 15px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        #next-btn {
+            display: none;
+            margin-bottom: 20px;
+            background: rgba(0, 40, 0, 0.9);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-family: monospace;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px #00ff00;
+            transition: all 0.3s;
+        }
+
+        #next-btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        /* Container Puzzle Slide */
+        #slide-puzzle-wrapper {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0, 20, 0, 0.85);
+            padding: 20px;
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 30px #00ff00;
+        }
+
+        #slide-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 2px;
+            background: #00ff00;
+            border: 2px solid #00ff00;
+        }
+
+        .tile {
+            width: 100px;
+            height: 100px;
+            background-image: url('https://raw.githubusercontent.com/fauzanbunz/thegreatola/main/great1.png');
+            background-size: 300px 300px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .tile.empty {
+            background: #000;
+            cursor: default;
+        }
+
+        #slide-title {
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 20px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .puzzle-solved .rune-box {
+            background: #00ff00;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        .puzzle-solved .arrow {
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="matrixCanvas"></canvas>
+
+    <!-- ELEMEN TEKA-TEKI RUNE -->
+    <div id="puzzle-wrapper">
+        <div id="win-message">Congrats solved the puzzle</div>
+        <button id="next-btn" onclick="startSlidePuzzle()">NEXT PUZZLE</button>
+        <div id="puzzle-container"></div>
+        <div id="decoded-text">THEGREATOLA</div>
+    </div>
+
+    <!-- ELEMEN TEKA-TEKI SLIDE (Disembunyikan awalnya) -->
+    <div id="slide-puzzle-wrapper">
+        <div id="slide-title">RESTORE IMAGE FRAGMENTS</div>
+        <div id="slide-board"></div>
+        <div id="slide-win-message" style="display:none; color: #00ff00; margin-top: 15px; font-size: 24px; font-weight:bold; text-shadow: 0 0 10px #00ff00; text-transform: uppercase;">Congrats solved the puzzle</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+
+        let width, height;
+        const fontSize = 8; // Tetap 8px agar resolusi wajah tajam
+        let cols, rows;
+        let cells = [];
+        let drops = [];
+        let maskDataIdle, maskDataBlink;
+
+        let imagesLoadedCount = 0;
+        
+        // Link gambar dari repositori Anda
+        const urlIdle = "https://raw.githubusercontent.com/fauzanbunz/thegreatola/main/great1.png";
+        const urlBlink = "https://raw.githubusercontent.com/fauzanbunz/thegreatola/main/great2.png";
+
+        let currentState = 'idle'; // Pilihan: idle, blink
+        
+        // Variabel untuk efek Glitch
+        let isGlitching = false;
+        let glitchIntensity = 0;
+
+        // Variabel untuk efek Scanline TV Tabung (Garis bergerak)
+        let scanlineY = 0;
+
+        // Karakter didominasi 0 dan 1 (biner)
+        const chars = "010101010101010123456789";
+
+        // --- LOGIKA TEKA-TEKI KOPER (RUNE) ---
+        // Menggunakan 24 Rune Elder Futhark standar agar pemain bisa menggeser semuanya
+        const puzzleRunes = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ", "ᚾ", "ᛁ", "ᛃ", "ᛇ", "ᛈ", "ᛉ", "ᛊ", "ᛏ", "ᛒ", "ᛖ", "ᛗ", "ᛚ", "ᛜ", "ᛟ", "ᛞ"];
+        // Target: ᚦ (Th), ᛖ (E), ᚷ (G), ᚱ (R), ᛖ (E), ᚨ (A), ᛏ (T), ᛟ (O), ᛚ (L), ᚨ (A)
+        const targetIndices = [2, 18, 6, 4, 18, 3, 16, 22, 20, 3]; 
+        
+        let puzzleState = []; // Menyimpan index Rune saat ini untuk tiap slot
+        let isSolved = false;
+
+        function initPuzzle() {
+            const container = document.getElementById('puzzle-container');
+            
+            for (let i = 0; i < targetIndices.length; i++) {
+                const correctIndex = targetIndices[i];
+
+                let startIndex;
+                // Clue: Kotak pertama 'Th' (ᚦ) sudah benar
+                if (i === 0) {
+                    startIndex = correctIndex;
+                } else {
+                    // Sisa kotak diacak
+                    startIndex = Math.floor(Math.random() * puzzleRunes.length);
+                }
+                puzzleState.push(startIndex);
+
+                // Buat Elemen UI untuk setiap huruf
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+
+                const arrowUp = document.createElement('div');
+                arrowUp.className = 'arrow';
+                arrowUp.innerHTML = '▲';
+
+                const runeBox = document.createElement('div');
+                runeBox.className = 'rune-box';
+                runeBox.id = `rune-box-${i}`;
+                runeBox.innerText = puzzleRunes[startIndex];
+
+                const arrowDown = document.createElement('div');
+                arrowDown.className = 'arrow';
+                arrowDown.innerHTML = '▼';
+
+                // Kotak pertama adalah Clue, hilangkan fungsi panahnya
+                if (i === 0) {
+                    arrowUp.style.visibility = 'hidden';
+                    arrowDown.style.visibility = 'hidden';
+                } else {
+                    arrowUp.onclick = () => changeRune(i, 1);
+                    arrowDown.onclick = () => changeRune(i, -1);
+                }
+
+                slot.appendChild(arrowUp);
+                slot.appendChild(runeBox);
+                slot.appendChild(arrowDown);
+                container.appendChild(slot);
+            }
+        }
+
+        function changeRune(slotIndex, direction) {
+            if (isSolved) return; // Kunci teka-teki jika sudah terpecahkan
+            if (slotIndex === 0) return; // Kotak pertama tidak bisa diubah
+
+            // Geser index (arah 1 untuk ke atas/lanjut, -1 untuk ke bawah/mundur)
+            let currentIndex = puzzleState[slotIndex];
+            currentIndex += direction;
+
+            // Memutar kembali ke awal/akhir jika melewati batas jumlah Rune
+            if (currentIndex >= puzzleRunes.length) currentIndex = 0;
+            if (currentIndex < 0) currentIndex = puzzleRunes.length - 1;
+
+            puzzleState[slotIndex] = currentIndex;
+            
+            // Perbarui tampilan Rune
+            document.getElementById(`rune-box-${slotIndex}`).innerText = puzzleRunes[currentIndex];
+
+            checkWinCondition();
+        }
+
+        function checkWinCondition() {
+            let win = true;
+            for (let i = 0; i < targetIndices.length; i++) {
+                if (puzzleState[i] !== targetIndices[i]) {
+                    win = false;
+                    break;
+                }
+            }
+
+            if (win && !isSolved) {
+                isSolved = true;
+                document.getElementById('win-message').style.display = 'block';
+                document.getElementById('decoded-text').style.display = 'block';
+                document.getElementById('puzzle-container').classList.add('puzzle-solved');
+                
+                // Munculkan tombol NEXT PUZZLE setelah 5 detik
+                setTimeout(() => {
+                    document.getElementById('next-btn').style.display = 'block';
+                }, 5000);
+            }
+        }
+        
+        // Panggil inisialisasi teka-teki saat memuat
+        initPuzzle();
+
+        // --- LOGIKA TEKA-TEKI SLIDE (3x3) ---
+        let slideState = [];
+        const gridSize = 3;
+
+        function startSlidePuzzle() {
+            // Sembunyikan teka-teki pertama
+            document.getElementById('puzzle-wrapper').style.display = 'none';
+            // Tampilkan teka-teki kedua
+            document.getElementById('slide-puzzle-wrapper').style.display = 'flex';
+            
+            initSlideBoard();
+        }
+
+        function initSlideBoard() {
+            // Setup board awal [0, 1, 2, 3, 4, 5, 6, 7, 8] (8 adalah kotak kosong)
+            slideState = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+            
+            // Mengacak puzzle dengan melakukan pergerakan valid secara acak
+            // Ini menjamin puzzle selalu bisa diselesaikan (solvable)
+            let emptyIdx = 8;
+            for (let i = 0; i < 150; i++) {
+                let neighbors = getNeighbors(emptyIdx);
+                let randomMove = neighbors[Math.floor(Math.random() * neighbors.length)];
+                
+                // Swap
+                slideState[emptyIdx] = slideState[randomMove];
+                slideState[randomMove] = 8;
+                emptyIdx = randomMove;
+            }
+
+            renderSlideBoard();
+        }
+
+        function getNeighbors(index) {
+            let neighbors = [];
+            let row = Math.floor(index / gridSize);
+            let col = index % gridSize;
+
+            if (row > 0) neighbors.push(index - gridSize); // Atas
+            if (row < gridSize - 1) neighbors.push(index + gridSize); // Bawah
+            if (col > 0) neighbors.push(index - 1); // Kiri
+            if (col < gridSize - 1) neighbors.push(index + 1); // Kanan
+
+            return neighbors;
+        }
+
+        function renderSlideBoard() {
+            const board = document.getElementById('slide-board');
+            board.innerHTML = ''; // Bersihkan
+
+            for (let i = 0; i < slideState.length; i++) {
+                const tileVal = slideState[i];
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+
+                if (tileVal === 8) {
+                    tile.classList.add('empty');
+                    tile.style.backgroundImage = 'none';
+                } else {
+                    // Hitung posisi background berdasarkan angka aslinya (agar gambar terpotong pas)
+                    let originalRow = Math.floor(tileVal / gridSize);
+                    let originalCol = tileVal % gridSize;
+                    tile.style.backgroundPosition = `-${originalCol * 100}px -${originalRow * 100}px`;
+                    tile.onclick = () => moveTile(i);
+                }
+
+                board.appendChild(tile);
+            }
+        }
+
+        function moveTile(index) {
+            let emptyIdx = slideState.indexOf(8);
+            let neighbors = getNeighbors(emptyIdx);
+
+            // Jika kotak yang diklik bersebelahan dengan kotak kosong, tukar posisinya
+            if (neighbors.includes(index)) {
+                slideState[emptyIdx] = slideState[index];
+                slideState[index] = 8;
+                renderSlideBoard();
+                checkSlideWin();
+            }
+        }
+
+        function checkSlideWin() {
+            let isWin = true;
+            for (let i = 0; i < slideState.length; i++) {
+                if (slideState[i] !== i) {
+                    isWin = false;
+                    break;
+                }
+            }
+
+            if (isWin) {
+                document.getElementById('slide-win-message').style.display = 'block';
+                // Menghilangkan fungsi klik karena sudah menang
+                const tiles = document.querySelectorAll('.tile');
+                tiles.forEach(t => t.onclick = null);
+                
+                // Isi bagian yang kosong dengan bagian gambar terakhir
+                let emptyTile = document.querySelector('.tile.empty');
+                emptyTile.classList.remove('empty');
+                emptyTile.style.backgroundImage = "url('https://raw.githubusercontent.com/fauzanbunz/thegreatola/main/great1.png')";
+                emptyTile.style.backgroundPosition = "-200px -200px";
+            }
+        }
+
+        // --- LOGIKA ANIMASI MATRIX ---
+        // Fungsi untuk mengambil angka acak
+        function getRandomChar() {
+            return chars[Math.floor(Math.random() * chars.length)];
+        }
+
+        // Fungsi fallback jika gambar gagal dimuat
+        function createProceduralMask(w, h) {
+            const c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            const mCtx = c.getContext('2d', { willReadFrequently: true });
+            mCtx.fillStyle = '#000';
+            mCtx.fillRect(0, 0, w, h);
+            
+            const cx = w / 2, cy = h / 2;
+            const r = Math.min(w, h) * 0.25; 
+
+            function brush(x, y, radius, intensity) {
+                const grad = mCtx.createRadialGradient(x, y, 0, x, y, radius);
+                grad.addColorStop(0, `rgba(255, 255, 255, ${intensity})`);
+                grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+                mCtx.fillStyle = grad;
+                mCtx.beginPath(); mCtx.arc(x, y, radius, 0, Math.PI * 2); mCtx.fill();
+            }
+            
+            brush(cx, cy, r * 1.5, 1.0);
+            return mCtx.getImageData(0, 0, w, h);
+        }
+
+        // Fungsi membuat topeng Matrix langsung dari piksel Foto Asli
+        function createImageMask(img, w, h) {
+            if (!img) return createProceduralMask(w, h); // Fallback jika gagal muat
+
+            const c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            const mCtx = c.getContext('2d', { willReadFrequently: true });
+
+            mCtx.fillStyle = '#000';
+            mCtx.fillRect(0, 0, w, h);
+
+            // Hitung rasio agar foto menutupi area layar (cover)
+            const imgRatio = img.width / img.height;
+            const screenRatio = w / h;
+            let drawW, drawH, drawX, drawY;
+
+            if (screenRatio > imgRatio) {
+                drawW = w;
+                drawH = w / imgRatio;
+            } else {
+                drawH = h;
+                drawW = h * imgRatio;
+            }
+            // Posisikan foto di tengah layar
+            drawX = (w - drawW) / 2;
+            drawY = (h - drawH) / 2;
+
+            mCtx.drawImage(img, drawX, drawY, drawW, drawH);
+
+            return mCtx.getImageData(0, 0, w, h);
+        }
+
+        // Fungsi bantuan memuat gambar sebagai promise
+        function loadImg(url) {
+            return new Promise((resolve) => {
+                let img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+        }
+
+        // Inisialisasi grid matrix
+        function initGrid() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+
+            cols = Math.ceil(width / fontSize);
+            rows = Math.ceil(height / fontSize);
+            
+            cells = [];
+            drops = [];
+
+            // Ekstrak data piksel untuk status wajah
+            maskDataIdle = createImageMask(imgIdle, width, height);
+            maskDataBlink = createImageMask(imgBlink, width, height);
+
+            // Inisiasi sel grid
+            for (let x = 0; x < cols; x++) {
+                drops[x] = {
+                    y: Math.random() * -100,
+                    speed: Math.random() * 0.4 + 0.2
+                };
+
+                for (let y = 0; y < rows; y++) {
+                    cells.push({
+                        x: x,
+                        y: y,
+                        char: getRandomChar(),
+                        brightness: 0
+                    });
+                }
+            }
+        }
+
+        // Loop utama animasi
+        function draw() {
+            ctx.fillStyle = '#000a00';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.font = `bold ${fontSize}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Perbarui posisi garis scanline TV
+            scanlineY += 4; // Kecepatan bergerak ke bawah
+            if (scanlineY > height) {
+                scanlineY = -50; // Reset kembali ke atas
+            }
+
+            // Hitung offset bernafas (mengambang naik turun)
+            // Kecepatan nafas: 0.0015, Amplitudo (tinggi ayunan): 15 pixel
+            let breathTime = Date.now() * 0.0015;
+            let breathOffset = Math.sin(breathTime) * 15;
+
+            // Perbarui tetesan hujan Matrix
+            for (let i = 0; i < cols; i++) {
+                let drop = drops[i];
+                let prevY = Math.floor(drop.y);
+                drop.y += drop.speed;
+                let currY = Math.floor(drop.y);
+
+                if (currY > prevY && currY >= 0 && currY < rows) {
+                    let cellIdx = i * rows + currY;
+                    if (cells[cellIdx]) {
+                        cells[cellIdx].brightness = 1.0;
+                        cells[cellIdx].char = getRandomChar();
+                    }
+                }
+
+                if (drop.y * fontSize > height && Math.random() > 0.95) {
+                    drop.y = Math.random() * -20;
+                    drop.speed = Math.random() * 0.4 + 0.2;
+                }
+            }
+
+            // Render semua sel angka
+            for (let i = 0; i < cells.length; i++) {
+                let cell = cells[i];
+
+                if (Math.random() < 0.005) {
+                    cell.char = getRandomChar();
+                }
+
+                cell.brightness *= 0.94; // Efek pudar hujan
+
+                // Tentukan koordinat dasar
+                let px = Math.floor(cell.x * fontSize + fontSize / 2);
+                let py = Math.floor(cell.y * fontSize + fontSize / 2);
+                
+                // Hitung posisi sampel Y dengan efek nafas
+                let sampleY = Math.floor(py - breathOffset);
+
+                // Fungsi untuk mengekstrak luminance dari mask gambar dengan offset nafas
+                let getLuminance = (mask) => {
+                    if (px >= 0 && px < width && sampleY >= 0 && sampleY < height && mask) {
+                        let idx = (sampleY * width + px) * 4;
+                        let r = mask.data[idx];
+                        let g = mask.data[idx + 1];
+                        let b = mask.data[idx + 2];
+                        let luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                        return Math.max(0, Math.min(1, (luminance - 0.15) * 1.5));
+                    }
+                    return 0;
+                };
+
+                // --- LOGIKA WARNA & CAHAYA ---
+                let r, g, b, alpha;
+                
+                // Ambil nilai kontras berdasarkan status (Mata terbuka/tertutup)
+                let activeMask = currentState === 'idle' ? maskDataIdle : maskDataBlink;
+                let faceWeight = getLuminance(activeMask);
+
+                // Warna Background (Hijau Gelap)
+                let bgR = 0, bgG = 40, bgB = 0;
+                // Warna Wajah (Hijau Terang Menyala)
+                let fgR = 0, fgG = 255, fgB = 0;
+                // Warna Kepala Hujan (Hijau Keputihan)
+                let rainR = 200, rainG = 255, rainB = 200;
+
+                if (cell.brightness > 0.8 && faceWeight < 0.3) {
+                    // Tetesan hujan sangat terang di area background
+                    r = rainR; g = rainG; b = rainB;
+                    alpha = cell.brightness;
+                } else {
+                    // Interpolasi warna antara background dan wajah
+                    r = bgR + (fgR - bgR) * faceWeight;
+                    g = bgG + (fgG - bgG) * faceWeight;
+                    b = bgB + (fgB - bgB) * faceWeight;
+
+                    // Interpolasi Opacity (Visibilitas)
+                    // Background stabil di 20% opacity + efek hujan
+                    let bgAlpha = 0.20 + (cell.brightness * 0.8);
+                    
+                    // Wajah stabil di 60% hingga 100% opacity secara permanen
+                    let fgAlpha = 0.60 + (faceWeight * 0.4); 
+
+                    alpha = bgAlpha + (fgAlpha - bgAlpha) * faceWeight;
+                }
+
+                // Tentukan koordinat gambar dan karakter bawaan
+                let drawX = cell.x * fontSize + fontSize / 2;
+                let drawY = cell.y * fontSize + fontSize / 2;
+                let charToDraw = cell.char;
+
+                // --- LOGIKA EFEK GLITCH ---
+                if (isGlitching) {
+                    // Buat distorsi bergaris horizontal (slicing)
+                    let blockY = Math.floor(cell.y / 5); 
+                    if (blockY % 4 === 0) { // Hanya terapkan pada blok baris tertentu agar terlihat rusak sebagian
+                        drawX += glitchIntensity * fontSize * (Math.random() > 0.5 ? 1 : -1);
+                        charToDraw = getRandomChar(); // Karakter teracak agresif
+                    }
+                    
+                    // Efek warna rusak sesaat bernuansa hijau
+                    let glitchColor = Math.random();
+                    if (glitchColor < 0.05) {
+                        r = 100; g = 255; b = 100; // Hijau terang
+                        alpha = Math.max(0.8, alpha);
+                    } else if (glitchColor < 0.1) {
+                        r = 150; g = 255; b = 0; // Hijau lime/kekuningan
+                        alpha = Math.max(0.8, alpha);
+                    }
+                }
+
+                // --- EFEK GARIS SCANLINE BERGERAK ---
+                // Buat karakter lebih menyala jika tersapu oleh garis scanline
+                if (drawY > scanlineY && drawY < scanlineY + 30) {
+                    r = Math.min(255, r + 30);
+                    g = Math.min(255, g + 80); // Tingkatkan intensitas hijau
+                    b = Math.min(255, b + 30);
+                    alpha = Math.min(1.0, alpha + 0.4);
+                }
+
+                // Render karakter jika terlihat
+                if (alpha > 0.05) {
+                    ctx.fillStyle = `rgba(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)}, ${alpha.toFixed(2)})`;
+                    ctx.fillText(charToDraw, drawX, drawY);
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', () => {
+            if (imagesLoadedCount === 2) initGrid();
+        });
+
+        // Tampilkan indikator loading sementara
+        ctx.fillStyle = '#000a00';
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        ctx.fillStyle = '#00ff00';
+        ctx.font = '20px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Memuat Efek Visual...', window.innerWidth / 2, window.innerHeight / 2 - 100);
+
+        // Muat gambar wajah secara bersamaan
+        let imgIdle, imgBlink;
+        Promise.all([loadImg(urlIdle), loadImg(urlBlink)]).then(images => {
+            imgIdle = images[0];
+            imgBlink = images[1];
+            imagesLoadedCount = 2;
+            initGrid();
+            draw();
+            startRandomBlink(); // Mulai jalankan siklus berkedip
+            startRandomGlitch(); // Mulai jalankan siklus glitch
+        });
+
+        // --- SISTEM GLITCH (DISTORSI VISUAL) ---
+        function startRandomGlitch() {
+            setTimeout(() => {
+                isGlitching = true;
+                // Geser 3 hingga 8 sel ke samping secara acak
+                glitchIntensity = Math.floor(Math.random() * 6) + 3; 
+                
+                setTimeout(() => {
+                    isGlitching = false;
+                }, Math.random() * 150 + 50); // Glitch berlangsung sangat cepat (50-200 milidetik)
+
+                startRandomGlitch(); // Jadwalkan glitch berikutnya
+            }, Math.random() * 6000 + 3000); // Muncul acak tiap 3 - 9 detik
+        }
+
+        // --- SISTEM BLINK (MATA BERKEDIP) ---
+        function startRandomBlink() {
+            setTimeout(() => {
+                // Berkedip jika sedang dalam status idle
+                if (currentState === 'idle') {
+                    currentState = 'blink';
+                    setTimeout(() => {
+                        // Kembali membuka mata
+                        if (currentState === 'blink') currentState = 'idle';
+                    }, 150); // Kecepatan kedip: 150 milidetik
+                }
+                startRandomBlink(); // Jadwalkan kedipan berikutnya
+            }, Math.random() * 4000 + 2000); // Berkedip acak tiap 2-6 detik
+        }
+
+    </script>
+</body>
+</html>
