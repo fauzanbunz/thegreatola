@@ -122,16 +122,6 @@
         }
 
         /* --- CSS TAMBAHAN UNTUK TRANSISI & PUZZLE SLIDE --- */
-        #decoded-text {
-            display: none;
-            margin-top: 20px;
-            color: #00ff00;
-            font-size: 32px;
-            font-weight: bold;
-            letter-spacing: 15px;
-            text-shadow: 0 0 10px #00ff00;
-        }
-
         .next-puzzle-btn {
             display: none;
             margin-top: 20px;
@@ -292,7 +282,6 @@
         <div id="win-message">Congrats solved the puzzle</div>
         <button id="next-btn" class="next-puzzle-btn" onclick="startSlidePuzzle()">NEXT PUZZLE</button>
         <div id="puzzle-container"></div>
-        <div id="decoded-text">THEGREATOLA</div>
     </div>
 
     <!-- ELEMEN TEKA-TEKI SLIDE (PUZZLE 2) -->
@@ -430,7 +419,6 @@
             if (win && !isSolved) {
                 isSolved = true;
                 document.getElementById('win-message').style.display = 'block';
-                document.getElementById('decoded-text').style.display = 'block';
                 document.getElementById('puzzle-container').classList.add('puzzle-solved');
                 
                 // Munculkan tombol NEXT PUZZLE setelah 5 detik
