@@ -29,6 +29,21 @@
             pointer-events: none; /* Agar tidak memblokir interaksi */
         }
 
+        /* --- CSS UNTUK WATERMARK (Teks Atas) --- */
+        #watermark {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            color: #00ff00;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0.8;
+            text-shadow: 0 0 5px #00ff00;
+            line-height: 1.5;
+        }
+
         /* --- CSS UNTUK TEKA-TEKI KOPER --- */
         #puzzle-wrapper {
             position: absolute;
@@ -264,6 +279,11 @@
     </style>
 </head>
 <body>
+    <!-- Teks Watermark Kecil -->
+    <div id="watermark">
+        fauzanbunz<br>@2026
+    </div>
+
     <canvas id="matrixCanvas"></canvas>
 
     <!-- ELEMEN TEKA-TEKI RUNE (PUZZLE 1) -->
